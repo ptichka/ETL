@@ -1,0 +1,123 @@
+import requests
+from lxml import etree, html
+from bs4 import BeautifulSoup
+import pandas as pd
+
+
+
+
+lstKey = []
+lstValue = []
+links = []
+links2 = []
+depth = 0
+count = 0
+
+
+
+def recursiveUrl(url, link, depth):
+    #print(url)
+    #print(link)
+    #print('погружение ', depth)
+    #print('подпапка ', url + link['href'])
+    if depth == 5:
+        return url
+    else:
+        if link['href'] != '../':
+            url = url + link['href']
+            
+            
+            page = requests.get(url)
+            soup = BeautifulSoup(page.text, 'html.parser')
+            newlink = soup.find_all('a')
+            #print('Все элементы >>> ', newlink, ' <<< Все элементы')
+            for link in newlink:
+                if link['href'][-1:] == '/':
+                    #print('url адрес текущего чтения ', url)
+                    
+                    links.append(recursiveUrl(url, link, depth + 1))
+                elif link['href'][-3:] == 'xml':
+                    print(url)  #Путь до файла xml
+                    print(link['href'])  #Имя файла xml
+                    buf_tfw = str(url + link['href'])
+                    links2.append(url + link['href'])
+                    with open('links2.txt', 'a') as file:
+                        file.write(buf_tfw + ' \n')
+                        file.close()
+                    
+                        
+                    #print("Это файл xml : ", link['href'])
+                else:
+                    print("Это файл : ", link['href'])
+        else:
+            print('Линк для выхода : ../', type(link))
+            
+
+            
+def getLinks(url):
+    page = requests.get(url)
+    soup = BeautifulSoup(page.text, 'html.parser')
+    links = soup.find_all('a')
+    print('погружение ', depth)
+    
+    for link in links:
+        
+        #print('url адрес текущего чтения ', url)
+        #print('Все папки >>> ', links, ' <<< Все папки')
+        recursiveUrl(url, link, depth + 1)
+        
+        
+def transform_data():
+    #print('file')
+    count = 0
+    for file in links2:
+        
+        count += 1
+        
+        url = file
+        r = requests.get(url)
+        with open('feed{}.xml'.format(str(count)), 'wb') as file:
+            file.write(r.content)
+    for i in range(count):
+        data = 'feed{}.xml'.format(i+1)
+        #print(data)
+        tree = etree.parse(data)
+        #print(tree)
+        lstKey = []
+        lstValue = []
+        for p in tree.iter() :
+            lstKey.append(tree.getpath(p).replace("/",".")[1:])
+            lstValue.append(p.text)
+        df = pd.DataFrame({'key' : lstKey, 'value' : lstValue})
+        df.sort_values('key')
+    
+
+    
+    
+    
+def getXml():
+    i=0
+    
+    with open('links2.txt') as f:
+        line = f.readline()
+        print (line)
+        while line:
+            print (line)
+            url = line
+            
+            r = requests.get(url)
+            with open('test{}.xml'.format(i+1), 'wb') as file:
+                file.write(r.content)
+            
+            #tree = etree.parse(data)
+            ##print(tree)
+            #lstKey = []
+            #lstValue = []
+            #for p in tree.iter() :
+            #    lstKey.append(tree.getpath(p).replace("/",".")[1:])
+            #    lstValue.append(p.text)
+            #df = pd.DataFrame({'key' : lstKey, 'value' : lstValue})
+            #df.sort_values('key')
+        line = f.readline()
+    
+        f.close()
